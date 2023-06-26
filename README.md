@@ -19,13 +19,6 @@ pip install pybullet
 ```
 3. The package is originally in the ROS catkin source workspace due to my hardware interface. But the simulation is independent of ROS. You might need to add the directory to your python path.
 
-## Generate URDF file
-There are multiple PuzzleBot URDFs that can be generated. Currently I'm using the simplified one. Run the following in the package root directory.
-```
-python scripts/generate_urdf.py 2
-```
-This should generate `puzzlebot.urdf` in the `urdf/` directory.
-
 ## Run Simulation
 Run the following for the simulation.
 ```
