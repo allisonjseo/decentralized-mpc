@@ -14,7 +14,7 @@ class RobotParam:
         self.anchor_L = anchor_L
 
 class Robots:
-    def __init__(self, N, controller, robot_param=None, eth=1e-3, 
+    def __init__(self, N, controller, pool, eth, robot_param=None,
                 pilot_ids=[]):
         self.N = N
         self.ctl = controller
@@ -26,7 +26,7 @@ class Robots:
         self.canvas = Canvas(N)
         self.time = {}
         self.robot_config = robot_param if robot_param else RobotParam()
-        self.behavs = BehaviorLib(N, controller, eth=eth, 
+        self.behavs = BehaviorLib(N, controller, pool, eth, 
                                 robot_param=self.robot_config)
 
     def setup(self, start, dt=0.1, tmax=15):
