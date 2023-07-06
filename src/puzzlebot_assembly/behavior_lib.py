@@ -3,11 +3,11 @@ import warnings
 from puzzlebot_assembly.utils import *
 from puzzlebot_assembly.planner import Planner
 from pathos.multiprocessing import ProcessingPool
+#from puzzlebot_assembly.control import Helper
 
 
 class BehaviorLib:
-    def __init__(self, N, controller, bhav_list=[], eth=1e-3, 
-                                    robot_param={}):
+    def __init__(self, N, controller, pool, eth, bhav_list=[], robot_param={}):
         self.N = N
         self.ctl = controller
         self.bhav_list = bhav_list
@@ -21,8 +21,8 @@ class BehaviorLib:
         self.time_list = []
         self.status_list = []
         self.location_list = []
-        self.file_time = None #open('times.txt', 'a')
-        self.file_status = None #open('anchor_status.txt', 'a')
+        self.cost_lists = []
+        self.pool = pool
 
     def add_bhav(self, bhav):
         self.bhav_list.append(bhav)
@@ -103,7 +103,7 @@ class BehaviorLib:
             anchor_param['insert_cp'] = np.fliplr(anchor_param['insert_cp'])
         return anchor_param
 
-    def update_cp_anchor(self, cp_list):  #equivalent to function augmentpairs in paper
+    def update_cp_anchor(self, cp_list):
         anchor_cps = {}
 
         for cp_ids in cp_list:
@@ -112,17 +112,19 @@ class BehaviorLib:
             anchor_cps[cp_ids] = anchor_param
         self.anchor_cps = anchor_cps
 
-    def get_current_dicts(self, x, anchor_cps, curr_dict, conn_dict):   #updatepairs in paper
-        print('x: ' + str(x))
+    def get_current_dicts(self, x, anchor_cps, curr_dict, conn_dict):
         N, eth = self.N, self.eth
         robot_param = self.robot_param
+
+        print('x: ' + str(x))
+        print('anchor_cps: ' + str(anchor_cps))
         
         for ids in anchor_cps:
             anchor_param = anchor_cps[ids]
             status = anchor_param['status']
             if anchor_param['execute'] == "wait": continue
-            # print("ids:", ids)
-            # print(anchor_param['status'])
+            print("ids:", ids)
+            print(anchor_param['status'])
 
             # get index of robot aligning with anchor (and without)
             anchor_idx = anchor_param['anchor_index']
@@ -133,7 +135,7 @@ class BehaviorLib:
 
             if status == "decoupled":
                 curr_dict[ids] = anchor_param['align_cp']
-                print('ids: ' + str(anchor_id) + ', ' + str(body_id))
+
                 # check if the anchor head is already aligned
                 anchor_pt = body2world(x[3*anchor_id:3*(anchor_id+1)],
                             anchor_param['align_cp'][:, anchor_idx, np.newaxis])
@@ -167,8 +169,8 @@ class BehaviorLib:
                 if anchor_param['type'] == "anchor":
                     body_pt = body2world(x[3*body_id:3*(body_id+1)],
                             anchor_param['insert_cp'][:, body_idx, np.newaxis])
-                    if is_inside_robot(anchor_pt, body_x, robot_param.L, #((np.linalg.norm(body_pt - anchor_pt) < eth) or is_inside_robot(anchor_pt, body_x, robot_param.L,
-                                        margin=eth):
+                    if ((np.linalg.norm(body_pt - anchor_pt) < eth) or is_inside_robot(anchor_pt, body_x, robot_param.L,
+                                        margin=eth)):
                         anchor_param['status'] = "head_insert"
                         continue
                 elif anchor_param['type'] == "knob":
@@ -187,23 +189,23 @@ class BehaviorLib:
                     continue
                 
                 # the head is already inserted, check if still inserted
-                anchor_pt = body2world(x[3*anchor_id:3*(anchor_id+1)],
-                             anchor_param['insert_cp'][:, anchor_idx, np.newaxis])
-                if anchor_param['type'] == "anchor":
-                    body_pt = body2world(x[3*body_id:3*(body_id+1)],
-                             anchor_param['insert_cp'][:, body_idx, np.newaxis])
-                    if ((np.linalg.norm(body_pt - anchor_pt) < eth) or is_inside_robot(anchor_pt, body_x, robot_param.L,
-                                            margin=0.3*eth)):
-                            # the head is still inserted, do nothing
-                        print("head insert check pass")
-                        continue
-                        # head is not inserted, go back to insert
-                    warnings.warn('Anchor disconnected')
-                    anchor_param['status'] = "head_insert"
-                    conn_dict.pop(ids)
-                    curr_dict[ids] = anchor_param['insert_cp']
-                elif anchor_param['type'] == "knob":
-                    raise NotImplementedError("Knob type in head_insert")
+                # anchor_pt = body2world(x[3*anchor_id:3*(anchor_id+1)],
+                #              anchor_param['insert_cp'][:, anchor_idx, np.newaxis])
+                # if anchor_param['type'] == "anchor":
+                #      body_pt = body2world(x[3*body_id:3*(body_id+1)],
+                #              anchor_param['insert_cp'][:, body_idx, np.newaxis])
+                #      if ((np.linalg.norm(body_pt - anchor_pt) < eth) or is_inside_robot(anchor_pt, body_x, robot_param.L,
+                #                          margin=0.3*eth)):
+                #          # the head is still inserted, do nothing
+                #          print("head insert check pass")
+                #          continue
+                #      # head is not inserted, go back to insert
+                #      warnings.warn('Anchor disconnected')
+                #      anchor_param['status'] = "head_insert"
+                #      conn_dict.pop(ids)
+                #      curr_dict[ids] = anchor_param['insert_cp']
+                # elif anchor_param['type'] == "knob":
+                #      raise NotImplementedError("Knob type in head_insert")
 
         return curr_dict, conn_dict
 
@@ -258,15 +260,13 @@ class BehaviorLib:
         # update contact pair if needed
         curr_dict, conn_dict = self.get_current_dicts(x, anchor_cps,
                                     curr_dict, conn_dict)
-        #  print("curr_dict", curr_dict)
-        #  print("conn_dict", conn_dict)
+        print("curr_dict", curr_dict)
+        print("conn_dict", conn_dict)
         zero_list = self.get_zero_ids(conn_dict, robot_busy, 
                                 pilot_ids=pilot_ids)
         #  print("zero_list:", zero_list)
-        
         u = self.align_cp(x, prev_u, curr_dict, prev_cp=conn_dict,
                         zero_list=zero_list)
-        
         u[2*zero_list] = 0
         u[2*zero_list+1] = 0
 
@@ -293,10 +293,10 @@ class BehaviorLib:
         if len(remain_dict) == 0:
             print("All pairs aligned.")
             return None
-        # print("u:", u)
+        print("u:", u)
         return u
             
-    def init_align_pool(self, x):  #try writing to text files here
+    def init_align_pool(self, x):
         N = self.N
         self.align_pool_var['planner'] = Planner(self.N)
         self.align_pool_var['busy'] = np.zeros(N, dtype=bool)
@@ -307,6 +307,7 @@ class BehaviorLib:
         self.align_pool_var['conn_dict'] = {}
         self.align_pool_var['remain_dict'] = self.align_pool_var['pair_dict'].copy()
         self.align_pool_var['seg_dict'] = {i:[i] for i in range(N)}
+
 
     def align_cp_pool(self, x, u):
         N = self.N
@@ -333,9 +334,7 @@ class BehaviorLib:
         # update contact pair if needed
         curr_dict = planner.update_contact_with_ids(x, curr_dict)
         conn_dict = planner.update_contact_with_ids(x, conn_dict)
-
         u = self.align_cp(x, u, curr_dict, prev_cp=conn_dict)
-
         if u is not None:
             return u
 
@@ -359,31 +358,15 @@ class BehaviorLib:
     def align_cp(self, x, u, cp, prev_cp=[], zero_list=[]):
         if not cp: 
             return np.zeros(2 * self.N)
-        
-        """self.ctl.init_opt(x, u)                             #initial values
-        self.ctl.add_dynamics_constr()                      #dynamics constraints
-        self.ctl.add_vwlim_constraint()                     #v and w constraints
-        self.ctl.add_align_poly_constr(prev_cp, self.robot_param.L)     #constraints to keep couplings intact
-
-        cost = self.ctl.init_cost(x, zero_list=zero_list)
-        cost = self.ctl.align_cp_cost(cp, prev_cp)
-        #cost += self.ctl.stage_cost()
-        stage_cost = self.ctl.stage_cost()
-        #smooth_cost = self.ctl.smooth_cost(u)
-        for n in stage_cost.keys():
-            if n in cost.keys():
-                cost[n] += stage_cost[n]
-            else:
-                cost[n] = stage_cost[n]
-            #cost[n] += smooth_cost[n]"""
-
         from time import time
         start = time()
 
-        u_vel, obj_value = self.ctl.final(x, u, self.robot_param.L, cp, prev_cp)
+        u_vel, obj_value = self.ctl.final(x, u, self.robot_param.L, cp, prev_cp, self.pool)
 
         end = time()
+        print(end-start)
         self.time_list.append(end-start)
+        self.cost_lists.append(obj_value)
         anchor_cps = self.anchor_cps
         s = []
         l = []
@@ -412,20 +395,15 @@ class BehaviorLib:
         print(s)
         self.location_list.append(l)
         
-        
         if obj_value is None:
             self.fail_count += 1
         else:
             self.fail_count = 0
         if obj_value is None and self.fail_count > 3:
             # print("Recompute the optimization.")
-            """self.ctl.init_opt(x, u)
-            self.ctl.add_dynamics_constr()
-            self.ctl.add_vwlim_constraint()
-            cost = 0
-            cost += self.ctl.align_cp_cost(cp, prev_cp)
-            #  cost += self.ctl.align_cp_cost(prev_cp, prev_cp=[])"""
-            u_vel, obj_value = self.ctl.final(x, u, self.robot_param.L, cp, prev_cp)
+
+            u_vel, obj_value = self.ctl.final(x, u, self.robot_param.L, cp, prev_cp, self.pool)
+
             if obj_value is None:
                 u_vel = np.zeros(2 * self.N)
                 u_vel[0::2] = 0.1
