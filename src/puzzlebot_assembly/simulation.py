@@ -189,6 +189,7 @@ class BulletSim:
         file_time = open('times.txt', 'a')
         file_status = open('anchor_status.txt', 'a')
         file_locations = open('locations.txt', 'a')
+        file_costs = open('costs.txt', 'a')
 
         file_time_list = []
         for n in range(N):
@@ -212,7 +213,7 @@ class BulletSim:
                     ak = self.ah[i]
 
                 # wheel control
-                print(str(u))
+                #print(str(u))
                 vl, vr = ut.get_lr(u[2*i], u[2*i+1])
 
                 p.setJointMotorControlArray(r, 
@@ -250,24 +251,45 @@ class BulletSim:
                 print('time out.')
                 break
     
-        for t in rsys.behavs.time_list:
-            file_time.write(str(t))
+        check = rsys.behavs.status_list[-1]
+        b = True
+        for status in check:
+            if status != 'head_insert': b = False
+            
+        if b:
+            for t in rsys.behavs.time_list:
+                file_time.write(str(t))
+                file_time.write('\n')
             file_time.write('\n')
-        for s in rsys.behavs.status_list:
-            file_status.write(str(s))
+            file_time.write('\n')
+            for s in rsys.behavs.status_list:
+                file_status.write(str(s))
+                file_status.write('\n')
             file_status.write('\n')
-        for l in rsys.behavs.location_list:
-            file_locations.write(str(l))
+            file_status.write('\n')
+            for l in rsys.behavs.location_list:
+                file_locations.write(str(l))
+                file_locations.write('\n')
             file_locations.write('\n')
-        
-        for n0 in range(N):
-            for ts in rsys.behavs.ctl.time_lists[n0]:
-                file_time_list[n0].write(str(ts))
+            file_locations.write('\n')
+            for c in rsys.behavs.cost_lists:
+                file_costs.write(str(c))
+                file_costs.write('\n')
+            file_costs.write('\n')
+            file_costs.write('\n')    
+            
+            for n0 in range(N):
+                for ts in rsys.behavs.ctl.time_lists[n0]:
+                    file_time_list[n0].write(str(ts))
+                    file_time_list[n0].write('\n')
                 file_time_list[n0].write('\n')
+                file_time_list[n0].write('\n')
+                file_time_list[n0].close()
        
         file_time.close()
         file_status.close()
         file_locations.close()
+        file_costs.close()
 
     def end(self):
         p.disconnect()
