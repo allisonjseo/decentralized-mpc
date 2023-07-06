@@ -6,7 +6,7 @@ from pathos.multiprocessing import ProcessingPool
 
 
 class BehaviorLib:
-    def __init__(self, N, controller, bhav_list=[], eth=1e-3, 
+    def __init__(self, N, controller, pool, bhav_list=[], eth=1e-3, 
                                     robot_param={}):
         self.N = N
         self.ctl = controller
