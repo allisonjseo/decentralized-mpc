@@ -134,11 +134,11 @@ def per_robot(N, param, sl, x_curr_big, fk_opt, get_local_pt, ipopt_param, n, pr
         if anchor_id == n:
             for ti in range(1, param.hcst):
                 x_pt = get_local_pt(x[0:3, ti], ca.MX(cp_d[:, anchor_idx]))
-                xr = get_local_pt(x_curr[body_id][0:3, ti], ca.MX([L/2, -L/2]))
-                xl = get_local_pt(x_curr[body_id][0:3, ti], ca.MX([L/2, L/2]))
+                xr = get_local_pt(x_curr_big[body_id][0:3], ca.MX([L/2, -L/2]))
+                xl = get_local_pt(x_curr_big[body_id][0:3], ca.MX([L/2, L/2]))
     
-                xR = x_curr[body_id][0, ti]
-                yR = x_curr[body_id][1, ti]
+                xR = x_curr_big[body_id][0]
+                yR = x_curr_big[body_id][1]
     
                 opt.subject_to((x_pt[1] - yR)*(xr[0] - xR) >= (xr[1] - yR)*(x_pt[0] - xR))
                 opt.subject_to((x_pt[1] - yR)*(xR - xl[0]) >= (yR - xl[1])*(x_pt[0] - xR))
@@ -146,7 +146,7 @@ def per_robot(N, param, sl, x_curr_big, fk_opt, get_local_pt, ipopt_param, n, pr
                 
         elif body_id == n:
             for ti in range(1, param.hcst):
-                x_pt = get_local_pt(x_curr[anchor_id][0:3, ti], ca.MX(cp_d[:, anchor_idx]))
+                x_pt = get_local_pt(x_curr_big[anchor_id][0:3], ca.MX(cp_d[:, anchor_idx]))
                 xr = get_local_pt(x[0:3, ti], ca.MX([L/2, -L/2]))
                 xl = get_local_pt(x[0:3, ti], ca.MX([L/2, L/2]))
     
@@ -273,12 +273,11 @@ class Controller:
         x_dot = np.vstack([xx, yy, tt]).T.flatten()
         return (x + x_dot)
 
-    def final(self, prev_x, prev_u, L, cp, prev_cp):
+    def final(self, prev_x, prev_u, L, cp, prev_cp, pool):
         print('prev_cp: ' + str(prev_cp))
         uv_all = []
         uw_all = []
         total_cost = 0
-        pool = mp.Pool()
         args = []
         x_curr = self.fit_prev_x2opt(prev_x)
         #results = []
@@ -293,5 +292,6 @@ class Controller:
             uv_all.append(uv)
             uw_all.append(uw)
             self.time_lists[i].append(t)
+            print(t)
             i += 1
         return np.vstack([uv_all, uw_all]).T.flatten(), total_cost
