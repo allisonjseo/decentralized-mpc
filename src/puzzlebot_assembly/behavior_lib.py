@@ -2,7 +2,6 @@ import numpy as np
 import warnings
 from puzzlebot_assembly.utils import *
 from puzzlebot_assembly.planner import Planner
-from pathos.multiprocessing import ProcessingPool
 #from puzzlebot_assembly.control import Helper
 
 
