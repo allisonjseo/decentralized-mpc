@@ -2,7 +2,6 @@ import numpy as np
 from puzzlebot_assembly.canvas import Canvas
 from puzzlebot_assembly.logging import Logger
 from puzzlebot_assembly.behavior_lib import BehaviorLib
-from pathos.multiprocessing import ProcessingPool
 
 
 class RobotParam:
