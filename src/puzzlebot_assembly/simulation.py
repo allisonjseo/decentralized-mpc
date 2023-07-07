@@ -6,7 +6,6 @@ from puzzlebot_assembly.utils import *
 from puzzlebot_assembly.robots import Robots
 from puzzlebot_assembly.control import Controller, ControlParam
 from puzzlebot_assembly.behavior_lib import BehaviorLib
-from pathos.multiprocessing import ProcessingPool
 
 
 class SimUtils:
