@@ -3,7 +3,6 @@ import numpy as np
 import math
 from time import time
 import multiprocessing as mp
-from puzzlebot_assembly.optimize import Optimize
 
 from puzzlebot_assembly.utils import *
 
