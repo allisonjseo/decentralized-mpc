@@ -1,5 +1,7 @@
 # PuzzleBot
 
+The code for this project is adapted from here: https://github.com/ZoomLabCMU/puzzlebot_anchor. Feel free to check it out for more details.
+
 ## Installation
 
 1. Create conda environment with 
