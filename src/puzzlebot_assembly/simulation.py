@@ -67,12 +67,15 @@ class BulletSim:
         self.rsys = robot_system
         self.sim_utils = SimUtils()
 
+        self.success = True
+
     def setup(self, start):
         assert(self.N == start.shape[1])
         self.start_pos = start
 
         # initialize environment
         cid = p.connect(p.GUI) # or DIRECT for no gui
+        #cid = p.connect(p.DIRECT)
         p.resetSimulation()
         p.setGravity(0, 0, -10)
         p.setRealTimeSimulation(1)
@@ -187,7 +190,6 @@ class BulletSim:
         rsys = self.rsys
         file_time = open('times.txt', 'a')
         file_status = open('anchor_status.txt', 'a')
-        file_locations = open('locations.txt', 'a')
         file_costs = open('costs.txt', 'a')
 
         file_time_list = []
@@ -246,16 +248,20 @@ class BulletSim:
             rsys.x = x
             p.stepSimulation()
             t_diff = time.time() - t
-            if t_diff > 60:
+            if t_diff > 150:
                 print('time out.')
                 break
     
         check = rsys.behavs.status_list[-1]
-        b = True
+        count = 0
         for status in check:
-            if status != 'head_insert': b = False
-            
-        if b:
+            if status != 'head_insert': count += 1
+        print('count: ' + str(count))
+        if count > 1: self.success = False
+        """for status in check:
+            if status != 'head_insert': self.success = False"""
+
+        if self.success:
             for t in rsys.behavs.time_list:
                 file_time.write(str(t))
                 file_time.write('\n')
@@ -266,30 +272,23 @@ class BulletSim:
                 file_status.write('\n')
             file_status.write('\n')
             file_status.write('\n')
-            for l in rsys.behavs.location_list:
-                file_locations.write(str(l))
-                file_locations.write('\n')
-            file_locations.write('\n')
-            file_locations.write('\n')
             for c in rsys.behavs.cost_lists:
                 file_costs.write(str(c))
                 file_costs.write('\n')
             file_costs.write('\n')
             file_costs.write('\n')    
             
-            for n0 in range(N):
+            """for n0 in range(N):
                 for ts in rsys.behavs.ctl.time_lists[n0]:
                     file_time_list[n0].write(str(ts))
                     file_time_list[n0].write('\n')
                 file_time_list[n0].write('\n')
                 file_time_list[n0].write('\n')
-                file_time_list[n0].close()
+                file_time_list[n0].close()"""
        
         file_time.close()
         file_status.close()
-        file_locations.close()
         file_costs.close()
 
     def end(self):
         p.disconnect()
-

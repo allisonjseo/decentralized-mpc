@@ -83,6 +83,8 @@ def body2world(x, pt):
     """
     assert(x.shape == (3,))
     assert(pt.shape[0] >= 2)
+    if len(pt.shape) < 2:
+        pt = pt[:, np.newaxis]
     pt = pt[0:2, :]
     R = get_R(x[2])
     cw = (R.dot(pt) + x[0:2, np.newaxis]).T
@@ -102,7 +104,7 @@ def get_corners(x, L, margin=0):
 def is_inside_poly(pt, poly):
     """
     pt: size 2 vec, the point to consider
-    poly: the points of the polygon
+    poly: N-by-2 matrix, the points of the polygon
     """
     assert(pt.size == 2)
     assert(poly.shape[1] == 2)
@@ -120,6 +122,20 @@ def is_inside_robot(pt, x, L, margin=0):
     """
     cs = get_corners(x, L, margin=margin)
     return is_inside_poly(pt, cs)
+
+def get_relative_pt_num(xi, xj, xj_pt):
+    """
+    Get the numerial value of the relative point in x coordinate
+    xi: 3 vec, xj: 3 vec, xj_pt: 2 vec
+    return: float
+    """
+    assert(xi.shape == (3,))
+    assert(xj.shape == (3,))
+    assert(xj_pt.shape == (2,))
+    ti = xi[2]
+    tj = xj[2]
+    xi_pt_x = np.cos(tj-ti)*(xj_pt[0]) - np.sin(tj-ti)*(xj_pt[1]) + np.cos(-ti)*(xj[0]-xi[0]) - np.sin(-ti)*(xj[1]-xi[1])
+    return xi_pt_x
 
 def get_Ab_vwlim(vmax, wmax, N, double_int=True):
     """

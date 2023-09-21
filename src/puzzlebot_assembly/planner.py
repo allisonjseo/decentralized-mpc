@@ -45,8 +45,8 @@ class Planner:
             mesh[1, prev_num:curr_num] = ci*L
             prev_num = curr_num
         # offset all points in mesh to the centroid of x
-        #  mesh -= np.mean(mesh, axis=1)[:, None]
-        #  mesh += np.mean(x, axis=1)[:, None]
+        mesh -= np.mean(mesh, axis=1)[:, None]
+        mesh += np.mean(x, axis=1)[:, None]
 
         return mesh
 

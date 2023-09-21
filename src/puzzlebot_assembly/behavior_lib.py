@@ -3,7 +3,7 @@ import warnings
 from puzzlebot_assembly.utils import *
 from puzzlebot_assembly.planner import Planner
 #from puzzlebot_assembly.control import Helper
-
+#decentralized
 
 class BehaviorLib:
     def __init__(self, N, controller, pool, eth, bhav_list=[], robot_param={}):
@@ -375,7 +375,7 @@ class BehaviorLib:
             anchor_param = anchor_cps[ids]
             s.append(anchor_param['status'])
 
-            if anchor_param['status'] == 'head_insert':
+            """if anchor_param['status'] == 'head_insert':
                 anchor_idx = anchor_param['anchor_index']
                 anchor_id = ids[anchor_idx]
                 body_idx = 1 - anchor_idx
@@ -389,23 +389,20 @@ class BehaviorLib:
                     l.append('yes')
                 else: l.append('no')
             else:
-                l.append('N/A')
+                l.append('N/A')"""
         self.status_list.append(s)
         print(s)
-        self.location_list.append(l)
+        #self.location_list.append(l)
         
         if obj_value is None:
             self.fail_count += 1
+            return np.zeros(2 * self.N)
         else:
             self.fail_count = 0
         if obj_value is None and self.fail_count > 3:
-            # print("Recompute the optimization.")
-
-            u_vel, obj_value = self.ctl.final(x, u, self.robot_param.L, cp, prev_cp, self.pool)
-
             if obj_value is None:
                 u_vel = np.zeros(2 * self.N)
-                u_vel[0::2] = 0.1
+                # u_vel[0::2] = 0.1
             return u_vel
 
         return u_vel

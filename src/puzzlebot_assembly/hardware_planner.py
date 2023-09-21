@@ -7,12 +7,11 @@ from puzzlebot_assembly.robots import Robots
 from puzzlebot_assembly.utils import *
 
 class HardwarePlanner:
-    def __init__(self, N, c_param, controller, rsys, pilot_ids=[]):
+    def __init__(self, N, c_param, controller, rsys):
         self.N = N
         self.c_param = c_param
         self.ctl = controller
         self.rsys = rsys
-        self.pilot_ids = pilot_ids
         
         rospy.init_node('hardware_planner', anonymous=True, 
                     log_level=rospy.DEBUG)

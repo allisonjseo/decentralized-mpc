@@ -25,19 +25,44 @@ class RobotInterface:
         self.logger = []
         self.dts = dts
 
-        self.control_param = {'Pv': 0.5, 'Pw': 0.02, 'Iv': 0.3, 'Iw': 0.01, 
+        self.control_param = {'Pv': 3.0, 'Pw': 1.0, 'Iv': 0.1, 'Iw': 0.01, 
                         'opposite_scale_v': 10, 'opposite_scale_w': 10}
         self.robot_limit = {'vmax': 0.2, 'wmax': 6.0}
     
+    def get_vel(self, gdu, v_max=255, w_max=2.5, pilot_ids=[]):
+        """
+        gdu: 2-by-N vec
+        return: 2-by-N motor PWM signal
+        """
+        N = self.N
+        vel = self.prev_cmd_vel.copy()
+        
+        duv_zeros = np.abs(gdu[0, :]) < 0.001
+        duw_zeros = np.abs(gdu[1, :]) < 0.01
+        gdu[0, duv_zeros] = 0
+        gdu[1, duw_zeros] = 0
+
+        kv = 1/30*12/42*0.012
+        kw = 1/30*12/42*0.012/0.046*2
+        vel[0, :] = (gdu[0, :]/kv - gdu[1, :]/kw)/2
+        vel[1, :] = (gdu[0, :]/kv + gdu[1, :]/kw)/2
+        #  print("vel before clip:", vel)
+        vel[0, :] = np.clip(vel[0, :], -v_max, v_max)
+        vel[1, :] = np.clip(vel[1, :], -v_max, v_max)
+
+        self.cmd_vel = vel.astype(int)
+        self.prev_cmd_vel[:, :] = self.cmd_vel[:, :]
+        return self.cmd_vel
+
     def fit_pid(self, gdu, th=1e-3, v_min=0, v_max=250, same_sign=True, 
                 pilot_ids=[]):
         """
         gdu: 2*N vec
-        return: 2-by-N motor PWM signal
+        return: 2-by-N updated gdu
         """
         N = self.N
         cparam = self.control_param
-        vel = self.prev_cmd_vel.copy()
+        du = gdu.copy()
         print('gdu:', gdu)
 
         zero_mask = np.sum(np.abs(gdu), axis=0) < th
@@ -46,56 +71,21 @@ class RobotInterface:
         
         Pv, Pw = cparam['Pv'], cparam['Pw']
         Iv, Iw =  cparam['Iv'], cparam['Iw']
-        ov, ow = cparam['opposite_scale_v'], cparam['opposite_scale_w']
         curr_vel = self.curr_vel
+        print('current:', curr_vel)
         pids = np.zeros([4, N]) + np.array([[Pv, Pw, Iv, Iw]]).T
 
         err = gdu - curr_vel
-        #  prev_err = gdu - np.average(self.prev_vel[:, :, :-1], 
-                                    #  axis=2)
-        #  print("diff prev:", gdu - self.prev_vel[:, :, :-1])
+        #  intg_err = gdu*self.H*2 - np.sum(self.prev_vel, axis=2)
         intg_err = gdu - np.average(self.prev_vel[:, :, :-1], axis=2)
-        is_opposite = ((np.sign(gdu) * np.sign(curr_vel)) < 0)
-        is_opposite[0, :] &= (np.abs(gdu[0, :] - curr_vel[0, :]) > 1e-2)
-        is_opposite[1, :] &= (np.abs(gdu[1, :] - curr_vel[1, :]) > 1e-1)
-        pids[0, is_opposite[0, :]] *= ov
-        pids[1, is_opposite[1, :]] *= ow
-        #  print("err:", err)
-        #  print("intg_err:", intg_err)
-        #  print("curr_vel:", curr_vel)
         dv = (Pv * err + Iv * intg_err)[0, :]
         dw = (Pw * err + Iw * intg_err)[1, :]
+        du[0, :] += dv
+        du[1, :] += dw
+        du[:, zero_mask] = 0
+        print('du:', du)
 
-        # pilot robot fiters
-        #  dv[pilot_ids] *= 5
-        dw[pilot_ids] = 0
-        
-        dR = (dv / 0.0007 + dw / 0.00267) / 2
-        dL = (dv / 0.0007 - dw / 0.00267) / 2
-        
-        vel[0, :] += dL
-        vel[1, :] += dR
-
-        #  print("raw v:", vel)
-        # clip the PWM values to be the same sign
-        if same_sign:
-            gdu_sign = np.sign(gdu[0, :])
-            vel[0, (np.sign(vel[0, :]) * gdu_sign) < 0] = 1
-            vel[1, (np.sign(vel[1, :]) * gdu_sign) < 0] = 1
-
-        # normalize vels to the range limit
-        vel_max = np.max(np.abs(vel), axis=0)
-        vel_max_idx = vel_max > v_max
-        vel[:, vel_max_idx] = np.divide(vel*v_max, vel_max)[:, vel_max_idx]
-        pilot_max = 150 if np.all(self.pose[0, pilot_ids] < -0.083) else 250
-        vel[:, pilot_ids] = np.clip(vel[:, pilot_ids], 
-                                    -pilot_max, pilot_max)
-
-        vel[:, zero_mask] = 0
-
-        self.cmd_vel = vel.astype(int)
-        self.prev_cmd_vel[:, :] = self.cmd_vel[:, :]
-        return self.cmd_vel
+        return du
 
     def update_vels(self):
         N = self.N
@@ -127,7 +117,7 @@ class RobotInterface:
         self.prev_vel[:, :, -1] = self.curr_vel[:, :]
 
 class HardwareWrap:
-    def __init__(self, N):
+    def __init__(self, N, pilot_ids=[]):
         self.N = N
         self.robot_int = RobotInterface(N)
         self.tcp_com = None
@@ -138,7 +128,7 @@ class HardwareWrap:
         self.sub = [None] * N
         self.sub_u = None
         self.pub_x = None
-        self.pilot_ids = []
+        self.pilot_ids = pilot_ids
         
         self.u = np.zeros([2, N])
         
@@ -150,8 +140,9 @@ class HardwareWrap:
             for i in range(self.N):
                 ip = ips[i]
                 self.sub[i] = rospy.Subscriber('vicon/p%d/p%d' % (ip, ip), TransformStamped, self.vicon_cb, i)
-                if ip == 206:
+                if ip == 202:
                     self.pilot_ids.append(i)
+                    print("hardware pilot update:", self.pilot_ids)
 
         self.sub_u = rospy.Subscriber('vel_array', 
                             Float32MultiArray, self.update_u)
@@ -218,7 +209,10 @@ class HardwareWrap:
             r.update_vels()
             r.dts = tcp_com.dts
 
-            vel = r.fit_pid(self.u, same_sign=True, pilot_ids=self.pilot_ids)
+            #  vel = r.fit_pid(self.u, same_sign=True, pilot_ids=self.pilot_ids)
+            #  du = r.fit_pid(self.u)
+            #  vel = r.get_vel(du)
+            vel = r.get_vel(self.u)
             #  vel = np.array([[60, 160]]).T
             #  print("vel:", vel)
             if vel is None:
@@ -228,4 +222,3 @@ class HardwareWrap:
             #  rospy.loginfo(r.pose)
 
         tcp_com.end()
-

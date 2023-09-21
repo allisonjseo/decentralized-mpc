@@ -53,7 +53,7 @@ class TCPBridge:
         for i in range(self.N):
 
             rospy.loginfo("waiting for %d th robot" % i)
-            self.s.listen(2)
+            self.s.listen(1)
             clientsock, clientAddress = self.s.accept()
 
             # process robot ips
@@ -69,7 +69,7 @@ class TCPBridge:
             rospy.loginfo("%d robot connected" % len(self.threads))
             self.dts.append(0)
 
-        time.sleep(2)
+        time.sleep(0.1)
 
     def send(self, tw):
         # tw is 2-by-N
@@ -83,4 +83,3 @@ class TCPBridge:
 
     def end(self):
         self.s.close()
-
