@@ -1,0 +1,13 @@
+# Ignore files starting with 'times'
+times*
+
+# Ignore the 'build' folder
+build/
+
+anchor_status.txt
+
+costs.txt
+
+locations.txt
+
+

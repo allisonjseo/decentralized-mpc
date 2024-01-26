@@ -2,7 +2,8 @@ name: puzzle
 channels:
   - defaults
 dependencies:
-  - python=3.7
+  #- python=3.7
+  - python=3.8
   - numpy
   - matplotlib
   - ipython
